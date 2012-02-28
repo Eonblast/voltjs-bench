@@ -67,7 +67,7 @@ var workers = options.workers;
 var vlog = options.verbose || options.debug ? log : function() {}
 var vvlog = options.debug ? log : function() {}
 
-var cargos = 'a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z';
+var cargos = 'abcdefghijklmnopqrstuvwxyz';
 var lcargos = cargos.length
 
 if (cluster.isMaster)
@@ -170,7 +170,6 @@ function writeInsertLoop(job) {
     var reads = job.loops;
     var startTime = new Date().getTime();
     var chunkTime = new Date().getTime();
-    var doneWith = 0;
 
     var innerLoop = function() {
         var query = writeProc.getQuery();
@@ -193,8 +192,8 @@ function writeInsertLoop(job) {
             }, function readyToWrite() {
                 
                 if(index < job.loops) {
-                    if ( index && index % 5000 == 0 ) {
-                        vlog('Executed ' + index + ' writes in ' + 
+                    if ( index && index % 10000 == 0 ) {
+                        log('Executed ' + index + ' writes in ' + 
                         ((new Date().getTime()) - chunkTime) + 'ms ' +
                         util.inspect(process.memoryUsage()));
                         chunkTime = new Date().getTime();
@@ -202,9 +201,6 @@ function writeInsertLoop(job) {
 
                     index++;
                     process.nextTick(innerLoop);
-                } else {
-                    log(doneWith++, 'Time to stop voting: ',
-                         index);
                 }
             });
         } else {
