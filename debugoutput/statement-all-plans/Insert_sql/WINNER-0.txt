@@ -1,0 +1,3 @@
+INSERT into "HELLOWORLD"
+ MATERIALIZE TUPLE from parameters and/or literals
+

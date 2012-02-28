@@ -1,0 +1,7 @@
+SQL: INSERT INTO HELLOWORLD VALUES (?, ?, ?);
+COST: 0.0
+PLAN:
+
+INSERT into "HELLOWORLD"
+ MATERIALIZE TUPLE from parameters and/or literals
+

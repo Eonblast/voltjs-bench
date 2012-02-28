@@ -1,0 +1,3 @@
+DELETE
+ INDEX SCAN of "HELLOWORLD" using "SYS_IDX_SYS_PK_10018_10019" (unique-scan covering)
+

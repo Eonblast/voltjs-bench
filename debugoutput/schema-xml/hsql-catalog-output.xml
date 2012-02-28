@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE databaseschema [
+  <!ELEMENT databaseschema (table*)>
+  <!ELEMENT table (columns,indexes,constraints)>
+  <!ATTLIST table
+    name CDATA #REQUIRED
+    query CDATA #IMPLIED>
+  <!ELEMENT columns (column*)>
+  <!ELEMENT indexes (index*)>
+  <!ELEMENT constraints (constraint*)>
+  <!ELEMENT column (default?)>
+  <!ATTLIST column
+    name CDATA #REQUIRED
+    type CDATA #REQUIRED
+    nullable CDATA #REQUIRED
+    size CDATA #REQUIRED>
+  <!ELEMENT default ((value|columnref|bool|asterisk|operation|function)*)>
+  <!ELEMENT value ANY>
+  <!ATTLIST value
+    id CDATA #REQUIRED
+    type CDATA #REQUIRED
+    value CDATA #IMPLIED
+    isparam CDATA #IMPLIED>
+  <!ELEMENT columnref ANY>
+  <!ATTLIST columnref
+    id CDATA #REQUIRED
+    table CDATA #REQUIRED
+    column CDATA #REQUIRED
+    alias CDATA #IMPLIED
+    dir CDATA #IMPLIED>
+  <!ELEMENT bool ANY>
+  <!ATTLIST bool
+    id CDATA #REQUIRED
+    value CDATA #REQUIRED>
+  <!ELEMENT asterisk ANY>
+  <!ELEMENT groupcolumns ((value|columnref|bool|asterisk|operation|function)*)>
+  <!ELEMENT ordercolumns ((value|columnref|bool|asterisk|operation|function)*)>
+  <!ELEMENT operation ((value|columnref|bool|asterisk|operation|function)*)>
+  <!ATTLIST operation
+    id CDATA #REQUIRED
+    type CDATA #REQUIRED
+    alias CDATA #IMPLIED
+    distinct CDATA #IMPLIED
+    desc CDATA #IMPLIED>
+  <!ELEMENT function ((value|columnref|bool|asterisk|operation|function)*)>
+  <!ATTLIST function
+    id CDATA #IMPLIED
+    name CDATA #REQUIRED
+    type CDATA #REQUIRED>
+  <!ELEMENT index ANY>
+  <!ATTLIST index
+    name CDATA #REQUIRED
+    unique CDATA #REQUIRED
+    columns CDATA #REQUIRED>
+  <!ELEMENT constraint ANY>
+  <!ATTLIST constraint
+    name CDATA #REQUIRED
+    type CDATA #REQUIRED
+    index CDATA #IMPLIED
+    foreignkeytable CDATA #IMPLIED>
+  <!ELEMENT reference ANY>
+  <!ATTLIST reference
+    from CDATA #REQUIRED
+    to CDATA #REQUIRED>
+]>
+<databaseschema>
+  <table name='HELLOWORLD'>
+    <columns>
+      <column name='HELLO' type='VARCHAR' nullable='true' size='15' />
+      <column name='WORLD' type='VARCHAR' nullable='true' size='15' />
+      <column name='DIALECT' type='VARCHAR' nullable='false' size='15' />
+    </columns>
+    <indexes>
+      <index name='SYS_IDX_SYS_PK_10018_10019' columns='DIALECT' unique='true'>
+      </index>
+    </indexes>
+    <constraints>
+      <constraint name='SYS_PK_10018' type='PRIMARY_KEY' index='SYS_IDX_SYS_PK_10018_10019' />
+    </constraints>
+  </table>
+</databaseschema>
+
