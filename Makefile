@@ -20,7 +20,7 @@ $(OBJDIR)/%.class: $(SRCDIR)/%.java
 catalogue: helloworld.jar
 
 helloworld.jar: project.xml 
-	java org.voltdb.compiler.VoltCompiler project.xml helloworld.jar
+	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.compiler.VoltCompiler project.xml helloworld.jar
 
 server: all
 	@ echo --- running server --- 
@@ -42,4 +42,3 @@ clean:
 	@ rm -f *.DS_Store
 
 .PHONY: all
-
