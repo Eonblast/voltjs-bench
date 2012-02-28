@@ -1,5 +1,7 @@
+*.class
+*.jar
+
 debugoutput
-
-
+voltdbroot
 
 .DS_Store
