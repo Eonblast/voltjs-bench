@@ -1,7 +1,8 @@
 # VoltJS-Bench GNU Makefile
 # H. Diedrich
 
-export CLASSPATH :=  ./:/Users/hd/voltdb/lib/*:/Users/hd/voltdb/voltdb/*
+VOLTROOT         := /home/voltdb/voltdb
+export CLASSPATH :=./:$(VOLTROOT)/lib/*:$(VOLTROOT)/voltdb/*
 
 SRCDIR		  =./
 OBJDIR		  =./
@@ -14,9 +15,8 @@ all: $(OBJECTS) catalogue
 
 $(OBJDIR)/%.class: $(SRCDIR)/%.java
 	@ mkdir -p $(OBJDIR) 
-	# javac -d $(OBJDIR) -s $(SRCDIR) $<
-	javac $<
-	
+	javac -d $(OBJDIR) -s $(SRCDIR) $<
+		
 catalogue: helloworld.jar
 
 helloworld.jar: project.xml 
@@ -24,7 +24,7 @@ helloworld.jar: project.xml
 
 server: all
 	@ echo --- running server --- 
-	java -Djava.library.path=/Users/hd/voltdb/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader localhost license /Users/hd/voltdb/voltdb/license.xml
+	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader localhost license /Users/hd/voltdb/voltdb/license.xml
 	@ echo --- --- 
 
 client: all
@@ -42,3 +42,4 @@ clean:
 	@ rm -f *.DS_Store
 
 .PHONY: all
+
