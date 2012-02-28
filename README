@@ -1,0 +1,23 @@
+VoltJS Bench
+============
+Benchmarking for VoltDB-Node.js driver
+
+    # compile stored procedures
+    export CLASSPATH='./:/Users/hd/voltdb/lib/*:/Users/hd/voltdb/voltdb/*'
+    javac *.java
+
+    # compile catalogue
+    java org.voltdb.compiler.VoltCompiler project.xml helloworld.jar
+
+    # run server
+    java -Djava.library.path=/Users/hd/voltdb/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader localhost license /Users/hd/voltdb/voltdb/license.xml
+
+In second terminal:
+    export CLASSPATH='./:/Users/hd/voltdb/lib/*:/Users/hd/voltdb/voltdb/*'
+    java Client
+    java Client1 English # same as Client but no inserts and language parameter
+    
+Server prints on screen:
+xxx
+
+/hd 2/28/12
