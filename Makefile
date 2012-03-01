@@ -1,7 +1,7 @@
 # VoltJS-Bench GNU Makefile
 # H. Diedrich
 
-VOLTLEAD         := 10.68.6.232
+VOLTLEAD         := ip-10-68-6-232.ec2.internal
 
 VOLTROOT         := /home/voltdb/voltdb
 export CLASSPATH :=./:$(VOLTROOT)/lib/*:$(VOLTROOT)/voltdb/*
