@@ -1,6 +1,8 @@
 # VoltJS-Bench GNU Makefile
 # H. Diedrich
 
+VOLTLEAD         := 10.68.6.232
+
 VOLTROOT         := /home/voltdb/voltdb
 export CLASSPATH :=./:$(VOLTROOT)/lib/*:$(VOLTROOT)/voltdb/*
 
@@ -24,7 +26,7 @@ helloworld.jar: project.xml
 
 server: all
 	@ echo --- running server --- 
-	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader localhost license /Users/hd/voltdb/voltdb/license.xml
+	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader $(VOLTLEAD) license /Users/hd/voltdb/voltdb/license.xml
 	@ echo --- --- 
 
 client: all
