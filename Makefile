@@ -43,4 +43,13 @@ clean:
 	@ rm -f *.class
 	@ rm -f *.DS_Store
 
+# test if VoltDB is running on this machine
+up:
+	ps ax | grep voltb
+
+# create a binary 'up' that tests if VoltDB is running on this machiner
+binup:
+	echo "ps ax | grep voltb" > up && chmod 777 up && sudo mv up /usr/local/bin
+
+
 .PHONY: all
