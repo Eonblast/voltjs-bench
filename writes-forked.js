@@ -193,8 +193,11 @@ function writeInsertLoop(job) {
                 
                 if(index < job.loops) {
                     if ( index && index % 10000 == 0 ) {
-                        log('Executed ' + index + ' writes in ' + 
-                        ((new Date().getTime()) - chunkTime) + 'ms ' +
+                        var total_writes = index
+                        var now_time = ((new Date().getTime()) - chunkTime)
+                        var now_writes = 10000
+                        var now_rate = Math.round(now_writes*1000/now_time)
+                        log('Executed ' + total_writes + ' writes. Last ' + now_writes + ' in ' + now_time + 'ms --> ' + now_rate + ' TPS ' +
                         util.inspect(process.memoryUsage()));
                         chunkTime = new Date().getTime();
                     }

@@ -1,9 +1,9 @@
 # VoltJS-Bench GNU Makefile
 # H. Diedrich
 
-VOLTLEAD         := ip-10-68-6-232.ec2.internal
+VOLTLEAD		 := ip-10-68-6-232.ec2.internal
 
-VOLTROOT         := /home/voltdb/voltdb
+VOLTROOT		 := /home/voltdb/voltdb
 export CLASSPATH :=./:$(VOLTROOT)/lib/*:$(VOLTROOT)/voltdb/*
 
 SRCDIR		  =./
@@ -13,7 +13,7 @@ MODULES		 := $(SOURCES:$(SRCDIR)/%.java=%)
 OBJECTS		 := $(MODULES:%=$(OBJDIR)/%.class)
 
 all: $(OBJECTS) catalogue
-    
+	
 
 $(OBJDIR)/%.class: $(SRCDIR)/%.java
 	@ mkdir -p $(OBJDIR) 
@@ -29,11 +29,15 @@ server: all
 	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader $(VOLTLEAD) license /Users/hd/voltdb/voltdb/license.xml
 	@ echo --- --- 
 
-client: all
-	@ echo --- running client --- 
+javaclient: all
+	@ echo --- running Java client for a setup test --- 
 	java Client
 	java Client1 English # same as Client but no inserts and language parameter
 	@ echo --- --- 
+
+client: 
+		@ echo --- running Node.js client ---
+		node writes-forked.js -h $(VOLTLEAD) -c 10000 -f 4
 
 clean:
 	@ rm -rf voltdbroot
