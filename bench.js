@@ -61,12 +61,16 @@ var options = cli.parse({
     write     : ['w', 'write'],
     read      : ['r', 'read'],
     numeric   : ['n', 'numeric, sequential dummy data'],
-    debug     : ['d', 'debug output']
+    debug     : ['d', 'debug output'],
+    quiet     : ['q', 'quieter output'],
+    lograte   : ['l', 'TPS log frequency', 'number', 10000]
 });
 
 var workers = options.workers;
-var vlog = options.verbose || options.debug ? log : function() {}
-var vvlog = options.debug ? log : function() {}
+var qlog = _log
+var log = !options.quiet||options.verbose||options.debug ? _log : function() {}
+var vlog = options.verbose || options.debug ? _log : function() {}
+var vvlog = options.debug ? _log : function() {}
 
 var cargos = 'abcdefghijklmnopqrstuvwxyz';
 var lcargos = cargos.length
@@ -107,7 +111,7 @@ function master_main() {
         var total = Math.round(throughput);
         var percore = Math.round(total / numCPUs);
         var perwrk = Math.round(total / workers);
-        log("Total: " + dec(total) + " TPS"
+        qlog("Total: " + dec(total) + " TPS"
               + " = " + dec(percore) + " TPS/core "
               + " = " + dec(perwrk) + " TPS/fork")
     }
@@ -220,13 +224,16 @@ function accessLoop(job) {
                 }, function readyToWrite() {
                     
                     if(index < job.loops) {
-                        if ( index && index % 10000 == 0 ) {
+                        if ( index && index % options.lograte == 0 ) {
                             var total_writes = index
                             var now_time = ((new Date().getTime()) - chunkTime)
-                            var now_writes = 10000
+                            var now_writes = options.lograte
                             var now_rate = Math.round(now_writes*1000/now_time)
-                            log('Executed ' + total_writes + ' writes. Last ' + now_writes + ' in ' + now_time + 'ms --> ' + now_rate + ' TPS ' +
-                            util.inspect(process.memoryUsage()));
+                            if(!options.quiet)
+                                log('Executed ' + dec(total_writes) + ' writes. Last ' + dec(now_writes) + ' in ' + now_time + 'ms --> ' + dec(now_rate) + ' TPS ' +
+                                util.inspect(process.memoryUsage()));
+                            else                                
+                                qlog(dec(now_rate) + ' TPS writes');
                             chunkTime = new Date().getTime();
                         }
     
@@ -265,10 +272,10 @@ function accessLoop(job) {
                 }, function readyToWrite() {
                     
                     if(index < job.loops) {
-                        if ( index && index % 10000 == 0 ) {
+                        if ( index && index % options.lograte == 0 ) {
                             var total_writes = index
                             var now_time = ((new Date().getTime()) - chunkTime)
-                            var now_writes = 10000
+                            var now_writes = options.lograte
                             var now_rate = Math.round(now_writes*1000/now_time)
                             log('Executed ' + total_writes + ' reads. Last ' + now_writes + ' in ' + now_time + 'ms --> ' + now_rate + ' TPS ' +
                             util.inspect(process.memoryUsage()));
@@ -293,7 +300,7 @@ function logTime(startTime, writes, typeString) {
   var endTimeMS = Math.max(1,new Date().getTime() - startTime);
   var throughput = writes * 1000 / endTimeMS;
 
-   log(util.format(
+   qlog(util.format(
         '%s transactions in %s milliseconds --> ' +
         '%s TPS',
         dec(writes),
@@ -311,7 +318,7 @@ function step(job) {
     }
 }
 
-function log(tx) {
+function _log(tx) {
     tx = tx.replace(/\n/g, "\n" + logTag + ": ");
     console.log(logTag + ": " + tx);
 }

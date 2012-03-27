@@ -1,9 +1,8 @@
-# VoltJS-Bench GNU Makefile
+# VoltJS-Bench 0.2 - GNU Makefile
 # H. Diedrich
 
-VOLTLEAD		 := ip-10-68-6-232.ec2.internal
-
-VOLTROOT		 := /home/voltdb/voltdb
+VOLTLEAD		 := localhost
+VOLTROOT		 := /Users/hd/voltdb
 export CLASSPATH :=./:$(VOLTROOT)/lib/*:$(VOLTROOT)/voltdb/*
 
 SRCDIR		  =./
@@ -38,6 +37,10 @@ javaclient: all
 client: 
 		@ echo --- running Node.js client ---
 		node writes-forked.js -h $(VOLTLEAD) -c 10000 -f 4
+
+bench: 
+		@ echo --- running Node.js client ---
+		node writes-forked.js -h $(VOLTLEAD) -c 1000 -f 1
 
 clean:
 	@ rm -rf voltdbroot

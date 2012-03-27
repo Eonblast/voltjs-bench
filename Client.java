@@ -10,7 +10,7 @@ public class Client {
          */
         org.voltdb.client.Client myApp;
         myApp = ClientFactory.createClient();
-        myApp.createConnection("ip-10-6-178-75.ec2.internal");
+        myApp.createConnection("localhost");
 
         /*
          * Load the database.
