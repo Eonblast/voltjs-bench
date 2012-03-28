@@ -1,0 +1,3 @@
+[submodule "voltdb-client-nodejs"]
+	path = voltdb-client-nodejs
+	url = https://Eonblast@github.com/Eonblast/voltdb-client-nodejs
