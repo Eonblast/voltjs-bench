@@ -40,6 +40,7 @@ var util = require('util');
 var cluster = require ('cluster');
 
 var VoltClient = require(voltjs + 'lib/client');
+var VoltConfiguration = require(voltjs + 'lib/configuration');
 var VoltProcedure = require(voltjs + 'lib/query');
 var VoltQuery = require(voltjs + 'lib/query');
 
@@ -47,11 +48,19 @@ var numCPUs = os.cpus().length
 var logTag = "master  "
 var ordnum = 0
 
-var client = null;
-var resultsProc = new VoltProcedure('Results');
+// init the stored procedure definitions
 var writeProc = new VoltProcedure('Insert', ['string','string','string']);
 var readProc = new VoltProcedure('Select', ['string']);
+var resultsProc = new VoltProcedure('Results');
+var initProc = new VoltProcedure('Initialize', ['int', 'string']);
+var voteProc = new VoltProcedure('Vote', ['long', 'int', 'long']);
+
+var client = null;
+
 var throughput = 0;
+var transactionCounter = 0; /// new
+var statsLoggingInterval = 10000; /// new
+
 
 var options = cli.parse({
     loops     : ['c', 'Number of loops to run', 'number', 10000],
@@ -60,6 +69,7 @@ var options = cli.parse({
     verbose   : ['v', 'verbose output'],
     write     : ['w', 'write'],
     read      : ['r', 'read'],
+    vote      : ['x', 'vote (1 write + 3 reads)'],
     numeric   : ['n', 'numeric, sequential dummy data'],
     debug     : ['d', 'debug output'],
     quiet     : ['q', 'quieter output'],
@@ -85,9 +95,12 @@ function master_main() {
   log("-- Forking Write Benchmark Client --")
 
   log("VoltDB host:  " + options.voltGate);
-  log("access: " + (options.write?"writes ":"") + (options.reads?"reads ":""));
+  log("access: " + (options.write?"writes ":"") + (options.reads?"reads ":"") + (options.vote?"vote ":""));
   log("values: " + (options.numeric?"numeric sequences":"random strings"));
   log("worker forks: " + workers);
+
+  if(options.vote)
+      voltVoteInit();
 
   // fork workers
   for (var i = 0; i < workers; i++) {
@@ -131,19 +144,18 @@ function worker_main() {
         username: 'user',
         password: 'password',
         service: 'database',
-        queryTimeout: 50000
-    
+        queryTimeout: 50000,
+        messageQueueSize: 20
     }]);
+    
     client.connect(function startup(results) {
-            vvlog('Node up');
+            vvlog('Node connected');
             voltInit();
         },
         function loginError(results) {
             log('Login error. Quitting.');
             process.exit();
     });
-
-    vvlog('connected')
 
     process.on('message', function(m) {
         console.log('Unknwon message:', m);
@@ -152,6 +164,7 @@ function worker_main() {
 
 function voltInit() {
     vvlog('voltInit');
+    
     var job = {
         loops: options.loops,
         steps: getSteps() 
@@ -181,10 +194,54 @@ function accessLoop(job) {
     var index = 0;
     var reads = job.loops;
     var writes = job.loops;
+    var votes = job.loops;
     var startTime = new Date().getTime();
     var chunkTime = new Date().getTime();
 
     var innerLoop = function() {
+
+        if(options.vote) {
+
+          var query = voteProc.getQuery();
+          if(index < job.loops) {
+
+               for(var i = 0; i < 1; i++) {
+                  query.setParameters([getAreaCode(), getCandidate(), 200000]);
+                  
+                /////// the actual vote  ////////////////////////////
+                /////////////////////////////////////////////////////
+                  client.call(query, function displayResults(results) {
+                    votes--;
+                    if(votes == 0) {
+                        logTime(startTime, job.loops, "Results");
+                        step(job);
+                    }
+                  },
+                  
+                  function readyToWrite() {
+                    
+                    if(index < job.loops) {
+                        if ( index && index % options.lograte == 0 ) {
+                            var total_writes = index
+                            var now_time = ((new Date().getTime()) - chunkTime)
+                            var now_writes = options.lograte
+                            var now_rate = Math.round(now_writes*1000/now_time)
+                            if(!options.quiet)
+                                log('Executed ' + dec(total_writes) + ' votes. Last ' + dec(now_writes) + ' in ' + now_time + 'ms --> ' + dec(now_rate) + ' TPS ' +
+                                util.inspect(process.memoryUsage()));
+                            else                                
+                                qlog(dec(now_rate) + ' TPS = + ' +                                 dec(now_rate) + ' writes/sec + ' + dec(3*now_rate) + ' reads/sec = ' + dec(4*now_rate) + 'OPS' );
+                            chunkTime = new Date().getTime();
+                        }
+    
+                        index++;
+                        process.nextTick(innerLoop);
+                    }
+                    
+                  });
+               }
+            }
+        }
 
         if(options.write) {
         
@@ -345,4 +402,65 @@ function dec(n) {
 var seq = 0;
 function unique_sequence() {
     return (seq++) * workers + ordnum;
-}    
+}
+
+// Voter Specific 
+
+var area_codes = [907, 205, 256, 334, 251, 870, 501, 479, 480, 602, 623, 928, 520, 341, 764, 628, 831, 925, 909, 562, 661, 510, 650, 949, 760, 415, 951, 209, 669, 408, 559, 626, 442, 530, 916, 627, 714, 707, 310, 323, 213, 424, 747, 818, 858, 935, 619, 805, 369, 720, 303, 970, 719, 860, 203, 959, 475, 202, 302, 689, 407, 239, 850, 727, 321, 754, 954, 927, 352, 863, 386, 904, 561, 772, 786, 305, 941, 813, 478, 770, 470, 404, 762, 706, 678, 912, 229, 808, 515, 319, 563, 641, 712, 208, 217, 872, 312, 773, 464, 708, 224, 847, 779, 815, 618, 309, 331, 630, 317, 765, 574, 260, 219, 812, 913, 785, 316, 620, 606, 859, 502, 270, 504, 985, 225, 318, 337, 774, 508, 339, 781, 857, 617, 978, 351, 413, 443, 410, 301, 240, 207, 517, 810, 278, 679, 313, 586, 947, 248, 734, 269, 989, 906, 616, 231, 612, 320, 651, 763, 952, 218, 507, 636, 660, 975, 816, 573, 314, 557, 417, 769, 601, 662, 228, 406, 336, 252, 984, 919, 980, 910, 828, 704, 701, 402, 308, 603, 908, 848, 732, 551, 201, 862, 973, 609, 856, 575, 957, 505, 775, 702, 315, 518, 646, 347, 212, 718, 516, 917, 845, 631, 716, 585, 607, 914, 216, 330, 234, 567, 419, 440, 380, 740, 614, 283, 513, 937, 918, 580, 405, 503, 541, 971, 814, 717, 570, 878, 835, 484, 610, 267, 215, 724, 412, 401, 843, 864, 803, 605, 423, 865, 931, 615, 901, 731, 254, 325, 713, 940, 817, 430, 903, 806, 737, 512, 361, 210, 979, 936, 409, 972, 469, 214, 682, 832, 281, 830, 956, 432, 915, 435, 801, 385, 434, 804, 757, 703, 571, 276, 236, 540, 802, 509, 360, 564, 206, 425, 253, 715, 920, 262, 414, 608, 304, 307];
+
+var voteCandidates = 'Edwina Burnam,Tabatha Gehling,Kelly Clauss,' + 'Jessie Alloway,Alana Bregman,Jessie Eichman,Allie Rogalski,Nita Coster,' + 'Kurt Walser,Ericka Dieter,Loraine NygrenTania Mattioli';
+
+function getCandidate() {
+  return Math.floor(Math.random() * 6) + 1;
+}
+
+function getAreaCode() {
+  return area_codes[Math.floor(Math.random() * area_codes.length)] * 10000000 + Math.random() * 10000000;
+}
+
+
+// setup the voter db
+function voltVoteInit() {
+
+    // define and start a Volt client
+    client = new VoltClient([{
+        host: options.voltGate,
+        port: 21212,
+        username: 'user',
+        password: 'password',
+        service: 'database',
+        queryTimeout: 50000
+    }]);
+    
+    client.connect(function startup(results) {
+
+        var query = initProc.getQuery();
+        query.setParameters([6, voteCandidates]);
+        client.call(query, function initVoter(results) {
+            var val = results.table[0][0];
+            log('Voter db initialized for ' + val[''] + ' candidates.');
+        });
+      },
+      function loginError(results) {
+        log('Login error. Quitting.');
+        process.exit();
+    });
+}
+
+function getConfiguration(host) {
+  var cfg = new VoltConfiguration();
+  cfg.host = host;
+  cfg.messageQueueSize = 20;
+  return cfg;
+}
+
+function logResults() {
+  logTime("Voted", statsLoggingInterval, transactionCounter);
+  transactionCounter = 0;
+}
+
+// Call the stored proc to colelct all votes.
+exports.getVoteResults = function(callback) {
+  var query = resultsProc.getQuery();
+  client.call(query, callback);
+}
