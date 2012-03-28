@@ -270,13 +270,10 @@ function accessLoop(job) {
                 /////// the actual write ////////////////////////////
                 /////////////////////////////////////////////////////
                 client.call(query, function displayResults(results) {
-                    vvlog("writes ", writes);
                     writes--;
                     if(writes == 0) {
                         logTime(startTime, job.loops, "Results");
                         step(job);
-                    } else {
-                       vvlog("writes ", writes);
                     }
                 }, function readyToWrite() {
                     
