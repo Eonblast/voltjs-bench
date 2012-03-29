@@ -30,6 +30,8 @@
  * Andy Wilson <awilson@voltdb.com> [www.voltdb.com]
  * Henning Diedrich <hd2010@eonblast.com> [www.eonblast.com]
  * 
+ * Use: e.g. node bench.js -h localhost -c 5000000 -l 5000  -f 2 -x -i "#1" -q
+ *
  */
 
 var voltjs = "./voltdb-client-nodejs/";
@@ -46,6 +48,7 @@ var VoltQuery = require(voltjs + 'lib/query');
 
 var numCPUs = os.cpus().length
 var logTag = "master  "
+var worker_id = "x"
 var ordnum = 0
 
 // init the stored procedure definitions
@@ -73,7 +76,9 @@ var options = cli.parse({
     numeric   : ['n', 'numeric, sequential dummy data'],
     debug     : ['d', 'debug output'],
     quiet     : ['q', 'quieter output'],
-    lograte   : ['l', 'TPS log frequency', 'number', 10000]
+    lograte   : ['l', 'TPS log frequency', 'number', 10000],
+    logaverage: ['a', 'TPS over last n acticity', 'number', 1000000],
+    id        : ['i', 'machine id for logging', 'string', '']
 });
 
 var workers = options.workers;
@@ -92,17 +97,22 @@ else
 
 function master_main() {
 
-  log("-- Forking Write Benchmark Client --")
+  logTag = (options.id?options.id+" ":"") + 'master '
+  worker_id = "0"
+
+  log("VoltDB Benchmark Client")
 
   log("VoltDB host:  " + options.voltGate);
   log("access: " + (options.write?"writes ":"") + (options.reads?"reads ":"") + (options.vote?"vote ":""));
-  log("values: " + (options.numeric?"numeric sequences":"random strings"));
+  if(options.write || options.reads) log("values: " + (options.numeric?"numeric sequences":"random strings"));
   log("worker forks: " + workers);
 
   if(options.vote)
       voltVoteInit();
 
   // fork workers
+  var logaverages = Array(workers); logaverages[0] = 0;
+  var logrates = Array(workers); logrates[0] = 0;
   for (var i = 0; i < workers; i++) {
     vvlog('forking worker #' + i)
     var worker = cluster.fork()
@@ -110,7 +120,13 @@ function master_main() {
     // result counter
     worker.on('message', function(msg) {
       if (msg.cmd && msg.cmd == 'result') {
-        throughput +=  msg.throughput
+        throughput +=  msg.throughput;
+      }
+      if (msg.cmd && msg.cmd == 'lap') {
+        var ai = parseInt(msg.worker);
+        logrates[ai] = msg.rate;
+        logaverages[ai] = msg.average;
+        vvlog("got average from " + msg.worker + ": " + logaverages[ai]);
       }
     });
   }
@@ -129,12 +145,26 @@ function master_main() {
               + " = " + dec(perwrk) + " TPS/fork")
     }
   })
+  
+  var last_master_rate = 0;
+  setInterval(function() {
+    var rate = logaverages.sum();
+    var cores = numCPUs;
+    var core_rate = Math.round(rate / cores);
+    var worker_rate = Math.round(rate / workers);
+    var masterdiff = rcutpad(pad("", Math.log(Math.abs(rate - last_master_rate)) / 2.302585092994046, 
+        (rate > last_master_rate ? "+" : "-")),8," ");
+    last_master_rate = rate; // not var
+    if(rate) qlog( dec(rate) + " TPS " + masterdiff + " " + dec(core_rate) + " TPS/core (" + cores +") " + dec(worker_rate) + " TPS/fork (" + workers +")"); 
+  }, 1000); 
 }
-
 
 function worker_main() {
 
-    logTag = 'worker ' + process.env.NODE_WORKER_ID
+    logTag = (options.id?options.id+" ":"") 
+           + 'fork ' + process.env.NODE_WORKER_ID
+    worker_id = process.env.NODE_WORKER_ID
+
     vvlog('worker main')
 
     // define and start a Volt client
@@ -184,7 +214,7 @@ function connectionStats() {
 }
 
 function writeEnd(job) {
-    ////  client.connectionStats();
+    if(options.verbose || options.debug) client.connectionStats();
     vvlog('writeEnd');
     process.exit();
 }
@@ -195,8 +225,8 @@ function accessLoop(job) {
     var reads = job.loops;
     var writes = job.loops;
     var votes = job.loops;
-    var startTime = new Date().getTime();
-    var chunkTime = new Date().getTime();
+    var startTime; 
+    var chunkTime;
 
     var innerLoop = function() {
 
@@ -212,32 +242,21 @@ function accessLoop(job) {
                 /////////////////////////////////////////////////////
                   client.call(query, function displayResults(results) {
                     votes--;
-                    if(votes == 0) {
-                        logTime(startTime, job.loops, "Results");
+                    if(votes <= 0) {
+                        lapTime("votes", index, job.loops, chunkTime);
+                        logTime(startTime, new Date().getTime(), job.loops, "Results");
                         step(job);
                     }
                   },
                   
                   function readyToWrite() {
                     
-                    if(index < job.loops) {
-                        if ( index && index % options.lograte == 0 ) {
-                            var total_writes = index
-                            var now_time = ((new Date().getTime()) - chunkTime)
-                            var now_writes = options.lograte
-                            var now_rate = Math.round(now_writes*1000/now_time)
-                            if(!options.quiet)
-                                log('Executed ' + dec(total_writes) + ' votes. Last ' + dec(now_writes) + ' in ' + now_time + 'ms --> ' + dec(now_rate) + ' TPS ' +
-                                util.inspect(process.memoryUsage()));
-                            else                                
-                                qlog(dec(now_rate) + ' TPS = + ' +                                 dec(now_rate) + ' writes/sec + ' + dec(3*now_rate) + ' reads/sec = ' + dec(4*now_rate) + 'OPS' );
+                    if(index <= job.loops && index && index % options.lograte == 0 ) {
+                            lapTime("votes", index, job.loops, chunkTime);
                             chunkTime = new Date().getTime();
                         }
-    
                         index++;
                         process.nextTick(innerLoop);
-                    }
-                    
                   });
                }
             }
@@ -271,29 +290,18 @@ function accessLoop(job) {
                 /////////////////////////////////////////////////////
                 client.call(query, function displayResults(results) {
                     writes--;
-                    if(writes == 0) {
-                        logTime(startTime, job.loops, "Results");
+                    if(writes <= 0) {
+                        lapTime("writes", index, job.loops, chunkTime);
+                        logTime(startTime, new Date().getTime(), job.loops, "Results");
                         step(job);
                     }
                 }, function readyToWrite() {
-                    
-                    if(index < job.loops) {
-                        if ( index && index % options.lograte == 0 ) {
-                            var total_writes = index
-                            var now_time = ((new Date().getTime()) - chunkTime)
-                            var now_writes = options.lograte
-                            var now_rate = Math.round(now_writes*1000/now_time)
-                            if(!options.quiet)
-                                log('Executed ' + dec(total_writes) + ' writes. Last ' + dec(now_writes) + ' in ' + now_time + 'ms --> ' + dec(now_rate) + ' TPS ' +
-                                util.inspect(process.memoryUsage()));
-                            else                                
-                                qlog(dec(now_rate) + ' TPS writes');
-                            chunkTime = new Date().getTime();
-                        }
-    
-                        index++;
-                        process.nextTick(innerLoop);
-                    }
+                     if(index <= job.loops && index && index % options.lograte == 0 ) {
+                       lapTime("writes", index, job.loops, chunkTime);
+                       chunkTime = new Date().getTime(); // gap!
+                     }  
+                     index++;
+                     process.nextTick(innerLoop);
                });
             }
         }
@@ -315,43 +323,87 @@ function accessLoop(job) {
                 /////// the actual read  ////////////////////////////
                 /////////////////////////////////////////////////////
                 client.call(query, function displayResults(results) {
-                    vvlog("reads ", reads);
                     reads--;
-                    if(reads == 0) {
-                        logTime(startTime, job.loops, "Results");
+                    if(reads <= 0) {
+                        lapTime("reads", index, job.loops, chunkTime);
+                        logTime(startTime, new Date().getTime(), job.loops, "Results");
                         step(job);
-                    } else {
-                       vvlog("reads ", reads);
                     }
                 }, function readyToWrite() {
-                    
-                    if(index < job.loops) {
-                        if ( index && index % options.lograte == 0 ) {
-                            var total_writes = index
-                            var now_time = ((new Date().getTime()) - chunkTime)
-                            var now_writes = options.lograte
-                            var now_rate = Math.round(now_writes*1000/now_time)
-                            log('Executed ' + total_writes + ' reads. Last ' + now_writes + ' in ' + now_time + 'ms --> ' + now_rate + ' TPS ' +
-                            util.inspect(process.memoryUsage()));
-                            chunkTime = new Date().getTime();
-                        }
-    
-                        index++;
-                        process.nextTick(innerLoop);
-                    }
+                     if(index <= job.loops && index && index % options.lograte == 0 ) {
+                       lapTime("reads", index, job.loops, chunkTime);
+                       chunkTime = new Date().getTime(); // gap!
+                     }
+                     index++;
+                     process.nextTick(innerLoop);
                });
             }
         }
     };
+    
+    startTime = chunkTime = new Date().getTime();
 
-    // void stack, yield
+    // start the above function
     process.nextTick(innerLoop);
 
 }
 
-function logTime(startTime, writes, typeString) {
+/* Rolling lap averages */
+var roll = options.logaverage / options.lograte;
+var laps = [];
+var acts = [];
+var last_rate = 0;
+var last_roll_rate = 0;
 
-  var endTimeMS = Math.max(1,new Date().getTime() - startTime);
+Array.prototype.fifo = function(x) {
+    if(this.push(x) > roll) this.shift()
+} 
+
+Array.prototype.sum = function() {
+    var sum = 0;
+    for(var i=0; i<this.length; i++) sum += this[i];
+    return sum;
+};
+
+function lapTime(act, i, max, chunkTime) {
+
+    var total_writes = i
+    var now_time = ((new Date().getTime()) - chunkTime)
+    var now_writes = options.lograte
+    var now_rate = Math.round(now_writes/now_time * 1000)
+
+    laps.fifo(now_time);
+    acts.fifo(now_writes);
+    var now_rolls = laps.length;
+    var now_roll_time = laps.sum();
+    var now_roll_acts = acts.sum();
+    var now_roll_rate = Math.round(now_roll_acts / now_roll_time * 1000);
+    var now_diff = rcutpad(pad("", Math.log(Math.abs(now_rate - last_rate)), 
+        (now_roll_rate > last_roll_rate ? "+" : "-")),8," ");
+    last_rate = now_rate; // not var
+    var roll_diff = pad("", Math.log(Math.abs(now_roll_rate - last_roll_rate)) /* / 2.302585092994046 */, 
+        (now_roll_rate > last_roll_rate ? "+" : "-"));
+    last_roll_rate = now_roll_rate; // not var
+    
+    if(!options.quiet)
+        vlog('Executed ' + dec(total_writes) + ' '+ act +'. Last ' + dec(now_writes) +
+        ' in ' + now_time + 'ms => ' + dec(now_rate) + ' TPS ' +
+        '\nLast ' + dec(now_roll_acts) +
+        ' in ' + now_roll_time + 'ms => ' + dec(now_roll_rate) + ' TPS ' +
+        ( options.verbose || options.debug ?
+        util.inspect(process.memoryUsage()) : ""));
+    else
+        log(dec(now_writes) + ' ' + act + ': ' + dec(now_rate) + ' TPS ' + now_diff + ' |  ' 
+        + 'avg ' + dec(now_roll_acts) + ': ' + dec(now_roll_rate) + ' TPS '
+        + roll_diff);
+
+    process.send({ cmd: 'lap', worker: worker_id, rate: now_rate, average: now_roll_rate });
+        
+}
+
+function logTime(startTime, endTime, writes, typeString) {
+
+  var endTimeMS = Math.max(1, endTime - startTime);
   var throughput = writes * 1000 / endTimeMS;
 
    qlog(util.format(
@@ -373,8 +425,11 @@ function step(job) {
 }
 
 function _log(tx) {
-    tx = tx.replace(/\n/g, "\n" + logTag + ": ");
-    console.log(logTag + ": " + tx);
+    var time = new Date();
+    time = pad(time.getHours(),2,"0") + ":" + pad(time.getMinutes(),2,"0") + ":" + pad(time.getSeconds(),2,"0") + ":" + pad(time.getMilliseconds(),3,"0")
+    var lead = logTag + " " + time + ": ";
+    tx = tx.replace(/\n/g, "\n" + lead);
+    console.log(lead + tx);
 }
 
 function getRand(ceil) {
@@ -452,7 +507,7 @@ function getConfiguration(host) {
 }
 
 function logResults() {
-  logTime("Voted", statsLoggingInterval, transactionCounter);
+  logTime("Voted", new Date().getTime(), statsLoggingInterval, transactionCounter);
   transactionCounter = 0;
 }
 
@@ -460,4 +515,14 @@ function logResults() {
 exports.getVoteResults = function(callback) {
   var query = resultsProc.getQuery();
   client.call(query, callback);
+}
+
+function pad(s,w,c) {
+    while (s.toString().length < w) s = c + s.toString();
+    return s;
+}
+
+function rcutpad(s,w,c) {
+    while (s.toString().length < w) s = s.toString() + c;
+    return s.substr(0,w);
 }

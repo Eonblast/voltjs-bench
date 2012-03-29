@@ -1,0 +1,4 @@
+echo switching to optimized driver
+cd voltdb-client-nodejs
+git checkout optimized
+cd ..

@@ -1,0 +1,4 @@
+echo switching to official driver
+cd voltdb-client-nodejs
+git checkout official
+cd ..

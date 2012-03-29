@@ -24,8 +24,13 @@ helloworld.jar: project.xml
 	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.compiler.VoltCompiler project.xml helloworld.jar
 
 server: all
-	@ echo --- running server --- 
+	@ echo --- running Hello server --- 
 	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader $(VOLTLEAD) license /Users/hd/voltdb/voltdb/license.xml
+	@ echo --- --- 
+
+voterserver: all
+	@ echo --- running Voter server --- 
+	cd ~/voltdb/examples/voter && ./run.sh
 	@ echo --- --- 
 
 javaclient: all
@@ -36,11 +41,11 @@ javaclient: all
 
 client: 
 		@ echo --- running Node.js client ---
-		node writes-forked.js -h $(VOLTLEAD) -c 10000 -f 4
+		node bench.js -h $(VOLTLEAD) -c 50000 -l 5000  -f 1 -w
 
 bench: 
 		@ echo --- running Node.js client ---
-		node writes-forked.js -h $(VOLTLEAD) -c 1000 -f 1
+		 node bench.js -h localhost -c 5000000 -l 5000  -f 2 -x -i "#1" -q
 
 clean:
 	@ rm -rf voltdbroot
