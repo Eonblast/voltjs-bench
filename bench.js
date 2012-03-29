@@ -185,15 +185,26 @@ function worker_main() {
     vvlog('worker main')
 
     // define and start a Volt client
-    client = new VoltClient([{
-        host: options.voltGate,
+    client = new VoltClient([
+    {
+        host: 'ip-10-84-114-35.ec2.internal',
         port: 21212,
         username: 'user',
         password: 'password',
         service: 'database',
         queryTimeout: 50000,
         messageQueueSize: 20
-    }]);
+    },
+    {
+        host: 'ip-10-60-199-203.ec2.internal',
+        port: 21212,
+        username: 'user',
+        password: 'password',
+        service: 'database',
+        queryTimeout: 50000,
+        messageQueueSize: 20
+    }
+    ]);
     
     client.connect(function startup(results) {
             vvlog('Node connected');
