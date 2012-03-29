@@ -82,6 +82,7 @@ var options = cli.parse({
 });
 
 var workers = options.workers;
+var running = 0;
 var qlog = _log
 var log = !options.quiet||options.verbose||options.debug ? _log : function() {}
 var vlog = options.verbose || options.debug ? _log : function() {}
@@ -112,6 +113,7 @@ function master_main() {
 
   // fork workers
   var logaverages = Array(workers); logaverages[0] = 0;
+  var logavetimes = Array(workers); logavetimes[0] = 0;
   var logrates = Array(workers); logrates[0] = 0;
   for (var i = 0; i < workers; i++) {
     vvlog('forking worker #' + i)
@@ -126,13 +128,14 @@ function master_main() {
         var ai = parseInt(msg.worker);
         logrates[ai] = msg.rate;
         logaverages[ai] = msg.average;
+        logavetimes[ai] = msg.average_range;
         vvlog("got average from " + msg.worker + ": " + logaverages[ai]);
       }
     });
   }
 
   // nearing end, track exits, print total
-  var exited = 0;  
+  var exited = 0;
   cluster.on('death', function(worker) {
     vlog('worker (pid ' + worker.pid + ') exits.')
     exited++;
@@ -147,15 +150,29 @@ function master_main() {
   })
   
   var last_master_rate = 0;
+  var last_master_roll_rate = 0;
   setInterval(function() {
-    var rate = logaverages.sum();
+    var rate = logrates.sum();
+    var roll_rate = logaverages.sum();
+    var roll_range = Math.round((logavetimes.length ? logavetimes.sum() / logavetimes.length : 0) / 6000) / 10;
     var cores = numCPUs;
-    var core_rate = Math.round(rate / cores);
-    var worker_rate = Math.round(rate / workers);
-    var masterdiff = rcutpad(pad("", Math.log(Math.abs(rate - last_master_rate)) / 2.302585092994046, 
+    var forks = workers - exited;
+    var core_rate = Math.round(roll_rate / cores);
+    var worker_rate = Math.round(roll_rate / forks);
+    var master_diff = 
+        rcutpad(pad("", Math.log(Math.abs(rate - last_master_rate)) / 2.302585092994046, 
         (rate > last_master_rate ? "+" : "-")),8," ");
+    var master_roll_diff = 
+        rcutpad(pad("", Math.log(Math.abs(roll_rate - last_master_roll_rate)) / 2.302585092994046, 
+        (roll_rate > last_master_roll_rate ? "+" : "-")),8," ");
     last_master_rate = rate; // not var
-    if(rate) qlog( dec(rate) + " TPS " + masterdiff + " " + dec(core_rate) + " TPS/core (" + cores +") " + dec(worker_rate) + " TPS/fork (" + workers +")"); 
+    last_master_roll_rate = roll_rate; // not var
+    if(rate) 
+        qlog( dec(rate) + " TPS " + master_diff + " " + roll_range +  "m avg: " +  dec(roll_rate) + " TPS " + master_roll_diff + " " + dec(core_rate) + " TPS/core (" + cores +") " + (forks?dec(worker_rate) + " TPS/fork (" + (forks) +")":dec(roll_rate/workers) + " TPS/fork (initially " + (workers) +")"));
+        
+    if(forks == 0)
+        process.exit();
+        
   }, 1000); 
 }
 
@@ -397,7 +414,7 @@ function lapTime(act, i, max, chunkTime) {
         + 'avg ' + dec(now_roll_acts) + ': ' + dec(now_roll_rate) + ' TPS '
         + roll_diff);
 
-    process.send({ cmd: 'lap', worker: worker_id, rate: now_rate, average: now_roll_rate });
+    process.send({ cmd: 'lap', worker: worker_id, rate: now_rate, average: now_roll_rate, average_range: now_roll_time });
         
 }
 
