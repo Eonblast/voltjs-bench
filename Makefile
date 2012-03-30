@@ -1,8 +1,8 @@
-# VoltJS-Bench 0.2 - GNU Makefile
+# VoltJS-Bench 0.75 - GNU Makefile
 # H. Diedrich
 
-VOLTLEAD		 := localhost
-VOLTROOT		 := /Users/hd/voltdb
+VOLTLEAD		 := ip-10-84-114-35.ec2.internal
+VOLTROOT		 := ~/voltdb
 export CLASSPATH :=./:$(VOLTROOT)/lib/*:$(VOLTROOT)/voltdb/*
 
 SRCDIR		  =./
@@ -25,7 +25,7 @@ helloworld.jar: project.xml
 
 server: all
 	@ echo --- running Hello server --- 
-	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader $(VOLTLEAD) license /Users/hd/voltdb/voltdb/license.xml
+	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader $(VOLTLEAD) license ~/voltdb/voltdb/license.xml
 	@ echo --- --- 
 
 voterserver: all
