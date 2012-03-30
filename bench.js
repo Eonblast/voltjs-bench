@@ -34,7 +34,6 @@
  *
  */
 
-console.log("Volt Node Bench .72");
 
 var voltjs = "./voltdb-client-nodejs/";
 
@@ -103,7 +102,7 @@ function master_main() {
   logTag = (options.id?options.id+" ":"") + 'master '
   worker_id = "0"
 
-  log("VoltDB Benchmark Client")
+  console.log("VoltDB Node.js Benchmark Client 0.72")
 
   log("VoltDB host:  " + options.voltGate);
   log("access: " + (options.write?"writes ":"") + (options.reads?"reads ":"") + (options.vote?"vote ":""));
@@ -114,9 +113,9 @@ function master_main() {
       voltVoteInit();
 
   // fork workers
-  var logaverages = Array(workers); logaverages[0] = 0;
-  var logavetimes = Array(workers); logavetimes[0] = 0;
-  var logrates = Array(workers); logrates[0] = 0;
+  var logaverages = Array(workers+1); logaverages[0] = 0;
+  var logavetimes = Array(workers+1); logavetimes[0] = 0;
+  var logrates = Array(workers+1); logrates[0] = 0;
   for (var i = 0; i < workers; i++) {
     vvlog('forking worker #' + i)
     var worker = cluster.fork()
@@ -154,13 +153,13 @@ function master_main() {
   var last_master_rate = 0;
   var last_master_roll_rate = 0;
   setInterval(function() {
-    var rate = logrates.sum();
-    var roll_rate = logaverages.sum();
-    var roll_range = Math.round((logavetimes.length ? logavetimes.sum() / logavetimes.length : 0) / 6000) / 10;
-    var cores = numCPUs;
     var realforks = logrates.notnull();
     var forks = workers - exited;
     var forknote = (realforks<forks?" "+(forks-realforks)+" starving":"");
+    var rate = logrates.sum();
+    var roll_rate = logaverages.sum();
+    var roll_range = Math.round((logavetimes.length ? logavetimes.sum() / realforks : 0) / 6000) / 10;
+    var cores = numCPUs;
     var core_rate = Math.round(roll_rate / cores);
     var worker_rate = Math.round(roll_rate / forks);
     var master_diff = 
@@ -177,12 +176,12 @@ function master_main() {
     if(forks == 0)
         process.exit();
 
-    for(var ai=0 /* 0=master */; ai < logrates.length; ai++) {
-        logrates[ai] = 0;
-        logaverages[ai] = 0;
-        logavetimes[ai] = 0;
+   for(var k=0; k < workers+1; k++) {  /* 0=master */
+        logrates[k] = 0;
+        logaverages[k] = 0;
+        logavetimes[k] = 0;
     }
-        
+         
   }, 1000); 
 }
 
@@ -401,6 +400,14 @@ Array.prototype.sum = function() {
     var sum = 0;
     for(var i=0; i<this.length; i++) sum += this[i];
     return sum;
+};
+
+Array.prototype.notnull = function() {
+    var count = 0;
+    for(var i=0; i<this.length; i++) 
+        if(this[i] !== 0 && this[i] !== null && this[i] !== undefined) 
+            count++;
+    return count;
 };
 
 function lapTime(act, i, max, chunkTime) {
