@@ -34,6 +34,8 @@
  *
  */
 
+console.log("Volt Node Bench .72");
+
 var voltjs = "./voltdb-client-nodejs/";
 
 var os = require('os')
@@ -156,7 +158,9 @@ function master_main() {
     var roll_rate = logaverages.sum();
     var roll_range = Math.round((logavetimes.length ? logavetimes.sum() / logavetimes.length : 0) / 6000) / 10;
     var cores = numCPUs;
+    var realforks = logrates.notnull();
     var forks = workers - exited;
+    var forknote = (realforks<forks?" "+(forks-realforks)+" starving":"");
     var core_rate = Math.round(roll_rate / cores);
     var worker_rate = Math.round(roll_rate / forks);
     var master_diff = 
@@ -168,10 +172,16 @@ function master_main() {
     last_master_rate = rate; // not var
     last_master_roll_rate = roll_rate; // not var
     if(rate) 
-        qlog( dec(rate) + " TPS " + master_diff + " " + roll_range +  "m avg: " +  dec(roll_rate) + " TPS " + master_roll_diff + " " + dec(core_rate) + " TPS/core (" + cores +") " + (forks?dec(worker_rate) + " TPS/fork (" + (forks) +")":dec(roll_rate/workers) + " TPS/fork (initially " + (workers) +")"));
+        qlog( dec(rate) + " TPS " + master_diff + " " + roll_range +  "m avg: " +  dec(roll_rate) + " TPS " + master_roll_diff + " " + dec(core_rate) + " TPS/core (" + cores +") " + (forks?dec(worker_rate) + " TPS/fork (" + realforks +"/"+ forks + forknote+")":dec(roll_rate/workers) + " TPS/fork (initially " + (workers) +")"));
         
     if(forks == 0)
         process.exit();
+
+    for(var ai=0 /* 0=master */; ai < logrates.length; ai++) {
+        logrates[ai] = 0;
+        logaverages[ai] = 0;
+        logavetimes[ai] = 0;
+    }
         
   }, 1000); 
 }
