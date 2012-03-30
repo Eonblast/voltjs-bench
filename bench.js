@@ -102,7 +102,7 @@ function master_main() {
   logTag = (options.id?options.id+" ":"") + 'master '
   worker_id = "0"
 
-  console.log("VoltDB Node.js Benchmark Client 0.73")
+  console.log("VoltDB Node.js Benchmark Client 0.74")
 
   log("VoltDB host:  " + options.voltGate);
   log("access: " + (options.write?"writes ":"") + (options.reads?"reads ":"") + (options.vote?"vote ":""));
@@ -202,7 +202,11 @@ function worker_main() {
       'ip-10-11-21-65.ec2.internal',
       'ip-10-32-199-192.ec2.internal',
       'ip-10-62-155-140.ec2.internal',
-      'ip-10-13-22-148.ec2.internal'];
+      'ip-10-13-22-148.ec2.internal',
+      'ip-10-13-50-215.ec2.internal',
+      'ip-10-218-37-207.ec2.internal',
+      'ip-10-84-5-174.ec2.internal',
+      'ip-10-84-41-241.ec2.internal'];
     
     var configs = [];
     for(var j=0; j < servers.length; j++) {
