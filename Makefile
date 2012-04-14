@@ -1,8 +1,8 @@
-# VoltJS-Bench 0.2 - GNU Makefile
+# VoltJS-Bench GNU Makefile
 # H. Diedrich
 
-VOLTLEAD		 := localhost
-VOLTROOT		 := /Users/hd/voltdb
+VOLTLEAD         := ip-10-84-114-35.ec2.internal
+VOLTROOT         := /home/voltdb/voltdb
 export CLASSPATH :=./:$(VOLTROOT)/lib/*:$(VOLTROOT)/voltdb/*
 
 SRCDIR		  =./
@@ -12,7 +12,7 @@ MODULES		 := $(SOURCES:$(SRCDIR)/%.java=%)
 OBJECTS		 := $(MODULES:%=$(OBJDIR)/%.class)
 
 all: $(OBJECTS) catalogue
-	
+    
 
 $(OBJDIR)/%.class: $(SRCDIR)/%.java
 	@ mkdir -p $(OBJDIR) 
@@ -24,28 +24,15 @@ helloworld.jar: project.xml
 	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.compiler.VoltCompiler project.xml helloworld.jar
 
 server: all
-	@ echo --- running Hello server --- 
+	@ echo --- running server --- 
 	java -Djava.library.path=$(VOLTROOT)/voltdb org.voltdb.VoltDB catalog helloworld.jar deployment deployment.xml leader $(VOLTLEAD) license /Users/hd/voltdb/voltdb/license.xml
 	@ echo --- --- 
 
-voterserver: all
-	@ echo --- running Voter server --- 
-	cd ~/voltdb/examples/voter && ./run.sh
-	@ echo --- --- 
-
-javaclient: all
-	@ echo --- running Java client for a setup test --- 
+client: all
+	@ echo --- running client --- 
 	java Client
 	java Client1 English # same as Client but no inserts and language parameter
 	@ echo --- --- 
-
-client: 
-		@ echo --- running Node.js client ---
-		node bench.js -h $(VOLTLEAD) -c 50000 -l 5000  -f 1 -w
-
-bench: 
-		@ echo --- running Node.js client ---
-		 node bench.js -h localhost -c 5000000 -l 5000  -f 2 -x -i "#1" -q
 
 clean:
 	@ rm -rf voltdbroot
